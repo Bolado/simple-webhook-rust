@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
     env,
+    fmt::Debug,
     sync::{Arc, Mutex},
 };
 
@@ -102,11 +103,17 @@ async fn webhook_handler(
     StatusCode::OK
 }
 
+fn current_timestamp() -> String {
+    let now = chrono::Utc::now();
+    now.to_rfc3339().to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct WebhookPayload {
-    r#type: String,
+    #[serde(default = "current_timestamp")]
     timestamp: String,
-    data: serde_json::Value,
+    #[serde(flatten)]
+    extra: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize)]
