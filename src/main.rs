@@ -106,7 +106,7 @@ async fn webhook_handler(
 struct WebhookPayload {
     r#type: String,
     timestamp: String,
-    data: String,
+    data: serde_json::Value,
 }
 
 #[derive(Deserialize)]
