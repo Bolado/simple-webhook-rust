@@ -9,6 +9,9 @@ It exposes a single endpoint `/` that supports both:
 
 Mainly built for hosting on my Docker server to test webhooks, reason the very simplistic authentication.
 
+<img width="503" height="233" alt="000143 Zen 15 12 2025 04 07 09" src="https://github.com/user-attachments/assets/dde408b6-f0de-487a-a82d-d83ed48cc5ad" />
+
+
 ## Docker Compose
 
 Example `docker-compose.yml`:
