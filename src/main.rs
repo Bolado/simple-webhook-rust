@@ -17,32 +17,37 @@ use std::{
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    // VecDeque to make it easy to pop from the front when we reach capacity
-    let webhooks: Arc<Mutex<VecDeque<WebhookPayload>>> =
-        Arc::new(Mutex::new(VecDeque::with_capacity(100)));
+    // shared state for storing webhooks and the expected secret
+    let app_state = AppState {
+        webhooks: Arc::new(Mutex::new(VecDeque::with_capacity(100))),
+        secret: std::env::var("WEBHOOK_SECRET").unwrap_or_else(|_| "DEFAULT_KEY".into()),
+    };
+
+    let secret = app_state.secret.clone();
 
     // same endpoint for both GET and POST
     // GET to check stored webhooks, POST to receive new webhooks
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/", post(webhook_handler))
-        .with_state(webhooks);
+        .with_state(app_state);
 
-    // get optional port
-    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-
-    let addr = format!("0.0.0.0:{}", port);
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string()); // default port 3000
+    let addr = format!("0.0.0.0:{}", port); // bind to all interfaces
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap(); // create the listener
 
     // display a ferris message
-    let message = format!("Server running on :{}", port);
-    ferris_says::say(message.as_str(), 50, &mut std::io::stdout()).unwrap();
+    ferris_says::say(
+        format!("Server running on :{}", port).as_str(),
+        50,
+        &mut std::io::stdout(),
+    )
+    .unwrap();
 
     // display the access URL with the expected secret
-    let expected_secret = env::var("WEBHOOK_SECRET").unwrap_or_else(|_| "DEFAULT_KEY".to_string());
     println!(
         "Access the received webhooks through http://localhost:{}/?secret={}",
-        port, expected_secret
+        port, secret
     );
 
     axum::serve(listener, app).await.unwrap();
@@ -50,11 +55,12 @@ async fn main() {
 
 // root_handler checks the secret and returns every stored webhook
 async fn root_handler(
-    State(webhooks): State<Arc<Mutex<VecDeque<WebhookPayload>>>>,
+    State(AppState {
+        webhooks,
+        secret: expected_secret,
+    }): State<AppState>,
     Query(params): Query<SecretQuery>,
 ) -> impl IntoResponse {
-    let expected_secret = env::var("WEBHOOK_SECRET").unwrap_or_else(|_| "DEFAULT_KEY".to_string());
-
     // if no secret provided
     let Some(provided_secret) = params.secret else {
         return (
@@ -92,7 +98,7 @@ async fn root_handler(
 
 // webhook_handler stores the received webhook payload
 async fn webhook_handler(
-    State(webhooks): State<Arc<Mutex<VecDeque<WebhookPayload>>>>,
+    State(AppState { webhooks, .. }): State<AppState>,
     Json(payload): Json<WebhookPayload>,
 ) -> StatusCode {
     println!("Received a webhook!");
@@ -130,4 +136,11 @@ struct WebhookPayload {
 #[derive(Deserialize)]
 struct SecretQuery {
     secret: Option<String>,
+}
+
+// AppState holds the shared state for the application
+#[derive(Clone)]
+struct AppState {
+    webhooks: Arc<Mutex<VecDeque<WebhookPayload>>>,
+    secret: String,
 }
