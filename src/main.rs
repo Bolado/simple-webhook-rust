@@ -13,6 +13,31 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+// WebhookPayload represents the structure of the received webhook payload
+// Includes the default timestamp if not provided
+// And squishes all other fields which may or may not be present
+#[derive(Debug, Serialize, Deserialize)]
+struct WebhookPayload {
+    #[serde(default = "current_timestamp")]
+    timestamp: String,
+    #[serde(flatten)]
+    extra: std::collections::HashMap<String, serde_json::Value>,
+}
+
+// SecretQuery represents the expected query parameter for secret
+// We set it as optional to handle the case where it's not provided
+#[derive(Deserialize)]
+struct SecretQuery {
+    secret: Option<String>,
+}
+
+// AppState holds the shared state for the application
+#[derive(Clone)]
+struct AppState {
+    webhooks: Arc<Mutex<VecDeque<WebhookPayload>>>,
+    secret: String,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -116,31 +141,5 @@ async fn webhook_handler(
 }
 
 fn current_timestamp() -> String {
-    let now = chrono::Utc::now();
-    now.to_rfc3339().to_string()
-}
-
-// WebhookPayload represents the structure of the received webhook payload
-// Includes the default timestamp if not provided
-// And squishes all other fields which may or may not be present
-#[derive(Debug, Serialize, Deserialize)]
-struct WebhookPayload {
-    #[serde(default = "current_timestamp")]
-    timestamp: String,
-    #[serde(flatten)]
-    extra: std::collections::HashMap<String, serde_json::Value>,
-}
-
-// SecretQuery represents the expected query parameter for secret
-// We set it as optional to handle the case where it's not provided
-#[derive(Deserialize)]
-struct SecretQuery {
-    secret: Option<String>,
-}
-
-// AppState holds the shared state for the application
-#[derive(Clone)]
-struct AppState {
-    webhooks: Arc<Mutex<VecDeque<WebhookPayload>>>,
-    secret: String,
+    chrono::Utc::now().to_rfc3339()
 }
