@@ -16,7 +16,7 @@ use std::{
 // WebhookPayload represents the structure of the received webhook payload
 // Includes the default timestamp if not provided
 // And squishes all other fields which may or may not be present
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct WebhookPayload {
     #[serde(default = "current_timestamp")]
     timestamp: String,
@@ -106,12 +106,14 @@ async fn root_handler(
 
     // serialize every stored webhook as pretty JSON
     let document_body = {
+        // Grab the lock once
         let webhooks = webhooks.lock().unwrap();
-        webhooks
-            .iter()
-            .map(|webhook| serde_json::to_string_pretty(webhook).unwrap())
-            .collect::<Vec<String>>()
-            .join("\n")
+
+        // Clone the webhooks into a Vec to avoid holding the lock during serialization
+        let vec: Vec<WebhookPayload> = webhooks.iter().cloned().collect();
+
+        // Serialize the Vec to pretty JSON
+        serde_json::to_string_pretty(&vec).unwrap()
     };
 
     (
