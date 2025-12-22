@@ -14,6 +14,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+mod error_page;
+use crate::error_page::render_secret_error_page;
+
 // WebhookPayload represents the structure of the received webhook payload
 // Includes the default timestamp if not provided
 // And squishes all other fields which may or may not be present
@@ -97,20 +100,12 @@ async fn root_handler(
 ) -> impl IntoResponse {
     // if no secret provided
     let Some(provided_secret) = params.secret else {
-        return (
-            StatusCode::UNAUTHORIZED,
-            [(header::CONTENT_TYPE, "text/plain")],
-            "No secret provided.".to_string(),
-        );
+        return render_secret_error_page("No secret provided.").into_response();
     };
 
     // if wrong secret provided
     if provided_secret != expected_secret {
-        return (
-            StatusCode::UNAUTHORIZED,
-            [(header::CONTENT_TYPE, "text/plain")],
-            "Wrong secret.".to_string(),
-        );
+        return render_secret_error_page("Wrong secret.").into_response();
     }
 
     // serialize every stored webhook as pretty JSON
@@ -130,6 +125,7 @@ async fn root_handler(
         [(header::CONTENT_TYPE, "application/json")],
         document_body,
     )
+        .into_response()
 }
 
 // webhook_handler stores the received webhook payload
