@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use rand::{Rng, distr::Alphanumeric};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
@@ -42,13 +43,21 @@ struct AppState {
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    // use env WEBHOOK_SECRET if set & non-empty, otherwise generate random
+    let secret = match env::var("WEBHOOK_SECRET") {
+        Ok(s) if !s.is_empty() => s,
+        _ => {
+            let generated = generate_secret(32);
+            println!("WEBHOOK_SECRET not set, generated secret: {}", generated);
+            generated
+        }
+    };
+
     // shared state for storing webhooks and the expected secret
     let app_state = AppState {
         webhooks: Arc::new(Mutex::new(VecDeque::with_capacity(100))),
-        secret: std::env::var("WEBHOOK_SECRET").unwrap_or_else(|_| "DEFAULT_KEY".into()),
+        secret: secret.clone(),
     };
-
-    let secret = app_state.secret.clone();
 
     // same endpoint for both GET and POST
     // GET to check stored webhooks, POST to receive new webhooks
@@ -144,4 +153,12 @@ async fn webhook_handler(
 
 fn current_timestamp() -> String {
     chrono::Utc::now().to_rfc3339()
+}
+
+fn generate_secret(len: usize) -> String {
+    rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .map(char::from)
+        .collect()
 }

@@ -5,12 +5,11 @@ Very minimal webhook receiver built with Rust and [axum](https://github.com/toki
 It exposes a single endpoint `/` that supports both:
 
 - `POST /` – receive and store webhook payloads
-- `GET /?secret=DEFAULT_KEY` – view stored webhook payloads
+- `GET /?secret=<SECRET>` – view stored webhook payloads
 
 Mainly built for hosting on my Docker server to test webhooks, reason the very simplistic authentication.
 
 <img width="503" height="233" alt="000143 Zen 15 12 2025 04 07 09" src="https://github.com/user-attachments/assets/dde408b6-f0de-487a-a82d-d83ed48cc5ad" />
-
 
 ## Docker Compose
 
@@ -29,3 +28,5 @@ services:
 ```
 
 You may have to adjust the network settings depending on your Docker setup. Also if you clone the repo and build the image yourself, make sure to change the image name accordingly.
+
+If you omit `WEBHOOK_SECRET`, check the container or process logs for the generated secret line: `WEBHOOK_SECRET not set; generated secret: <SECRET>`.
