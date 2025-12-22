@@ -159,7 +159,9 @@ async fn webhook_handler(
 }
 
 fn current_timestamp() -> String {
-    chrono::Utc::now().to_rfc3339()
+    chrono::Local::now()
+        .format("%b %d, %Y %H:%M:%S")
+        .to_string()
 }
 
 fn generate_secret(len: usize) -> String {
