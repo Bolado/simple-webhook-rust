@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Webhooks</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #160101;
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.65) 100%), #160101;
+            color: #f5f5f5;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            font-size: 32px;
+            text-align: center;
+            color: #fff;
+        }
+
+        .section {
+            background: rgba(20, 20, 25, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #b0b0b0;
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .copy-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(10, 10, 12, 0.6);
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 12px;
+        }
+
+        .copy-box input,
+        .copy-box code {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            font-family: "Courier New", monospace;
+            font-size: 13px;
+            padding: 0;
+            cursor: text;
+        }
+
+        .copy-box input {
+            outline: none;
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .copy-btn.copied {
+            background: rgba(45, 122, 45, 0.4);
+            border-color: rgba(45, 122, 45, 0.6);
+        }
+
+        .webhooks-list {
+            display: flex;
+            flex-direction: column;
+            margin-top: 12px;
+            gap: 12px;
+        }
+
+        .webhook-item {
+            background: rgba(10, 10, 12, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .webhook-item:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .webhook-header {
+            padding: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: none;
+            transition: background 0.15s;
+        }
+
+        .webhook-header:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .webhook-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            color: #b0b0b0;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .webhook-item.collapsed .webhook-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .webhook-info {
+            flex: 1;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .webhook-timestamp {
+            color: #7a7a7a;
+            min-width: 200px;
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+        }
+
+        .webhook-content {
+            padding: 14px;
+            display: none;
+            max-height: 400px;
+            overflow: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .webhook-item:not(.collapsed) .webhook-content {
+            display: block;
+        }
+
+        .webhook-json {
+            background: rgba(5, 5, 10, 0.8);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #a8e6db;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7a7a7a;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Webhook Receiver</h1>
+
+        <div class="section">
+            <span class="section-title">POST Endpoint</span>
+            <div class="copy-box">
+                <input type="text" id="endpointInput" value="{{ endpoint }}" readonly />
+                <button class="copy-btn" onclick="copyToClipboard('endpointInput', this)">Copy</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <span class="section-title">cURL Example</span>
+            <div class="copy-box">
+                <code
+                    id="curlCode">curl -X POST -H "Content-Type: application/json" -d "{\"event\":\"test\",\"value\":123}" {{ endpoint }}</code>
+                <button class="copy-btn" onclick="copyToClipboard('curlCode', this)">Copy</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span class="section-title">Received Webhooks ({{ webhooks_count }})</span>
+                <button class="copy-btn" onclick="location.reload()">Refresh</button>
+            </div>
+            {% if webhooks.is_empty() %}
+            <div class="empty-message">No webhooks received yet</div>
+            {% else %}
+            <div class="webhooks-list">
+                {% for (idx, webhook) in webhooks.iter().enumerate().rev() %}
+                <div class="webhook-item collapsed">
+                    <div class="webhook-header" onclick="toggleWebhook(this)">
+                        <span class="webhook-toggle">🡻</span>
+                        <div class="webhook-info">
+                            <span>#{{ webhooks_count - idx }}</span>
+                            <span class="webhook-timestamp">{{ webhook.timestamp }}</span>
+                        </div>
+                    </div>
+                    <div class="webhook-content">
+                        <div class="webhook-json">{{ webhook.json }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function toggleWebhook(headerEl) {
+            const item = headerEl.closest('.webhook-item');
+            item.classList.toggle('collapsed');
+        }
+
+        function copyToClipboard(elementId, btnEl) {
+            const element = document.getElementById(elementId);
+            const text = element.value || element.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btnEl.textContent;
+                btnEl.textContent = 'Copied!';
+                btnEl.classList.add('copied');
+
+                setTimeout(() => {
+                    btnEl.textContent = originalText;
+                    btnEl.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+    </script>
+</body>
+
+</html>

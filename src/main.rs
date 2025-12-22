@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Query, State},
-    http::{StatusCode, header},
+    http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
 };
@@ -15,7 +15,9 @@ use std::{
 };
 
 mod error_page;
+mod webhooks;
 use crate::error_page::render_secret_error_page;
+use crate::webhooks::{WebhookDisplay, WebhooksTemplate};
 
 // WebhookPayload represents the structure of the received webhook payload
 // Includes the default timestamp if not provided
@@ -40,6 +42,7 @@ struct SecretQuery {
 struct AppState {
     webhooks: Arc<Mutex<VecDeque<WebhookPayload>>>,
     secret: String,
+    port: String,
 }
 
 #[tokio::main]
@@ -56,10 +59,13 @@ async fn main() {
         }
     };
 
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string()); // default port 3000
+
     // shared state for storing webhooks and the expected secret
     let app_state = AppState {
         webhooks: Arc::new(Mutex::new(VecDeque::with_capacity(100))),
         secret: secret.clone(),
+        port: port.clone(),
     };
 
     // same endpoint for both GET and POST
@@ -69,7 +75,6 @@ async fn main() {
         .route("/", post(webhook_handler))
         .with_state(app_state);
 
-    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string()); // default port 3000
     let addr = format!("0.0.0.0:{}", port); // bind to all interfaces
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap(); // create the listener
 
@@ -95,6 +100,7 @@ async fn root_handler(
     State(AppState {
         webhooks,
         secret: expected_secret,
+        port,
     }): State<AppState>,
     Query(params): Query<SecretQuery>,
 ) -> impl IntoResponse {
@@ -108,24 +114,29 @@ async fn root_handler(
         return render_secret_error_page("Wrong secret.").into_response();
     }
 
-    // serialize every stored webhook as pretty JSON
-    let document_body = {
-        // Grab the lock once
-        let webhooks = webhooks.lock().unwrap();
+    // get the stored webhooks
+    let webhooks_guard = webhooks.lock().unwrap();
+    let webhooks_vec: Vec<WebhookDisplay> = webhooks_guard
+        .iter()
+        .map(|payload| WebhookDisplay {
+            timestamp: payload.timestamp.clone(),
+            json: serde_json::to_string_pretty(&payload).unwrap_or_default(),
+        })
+        .collect();
 
-        // Clone the webhooks into a Vec to avoid holding the lock during serialization
-        let vec: Vec<WebhookPayload> = webhooks.iter().cloned().collect();
+    let webhooks_count = webhooks_vec.len();
 
-        // Serialize the Vec to pretty JSON
-        serde_json::to_string_pretty(&vec).unwrap()
+    drop(webhooks_guard);
+
+    let endpoint = format!("http://localhost:{}/", port);
+
+    let template = WebhooksTemplate {
+        endpoint,
+        webhooks: webhooks_vec,
+        webhooks_count,
     };
 
-    (
-        StatusCode::OK,
-        [(header::CONTENT_TYPE, "application/json")],
-        document_body,
-    )
-        .into_response()
+    template.into_response()
 }
 
 // webhook_handler stores the received webhook payload
