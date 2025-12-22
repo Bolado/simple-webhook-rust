@@ -3,6 +3,7 @@ FROM rust:1.92.0-slim AS build
 WORKDIR /app
 
 COPY ./src ./src
+COPY ./templates ./templates
 COPY ./Cargo.lock .
 COPY ./Cargo.toml .
 
